@@ -7,10 +7,43 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Miembro {
+  id         Int      @id @default(autoincrement())
+  nombre     String   @unique
+  avatar     String
+  rol        String   @default("miembro")
+  pinHash    String
+  conFoto    Boolean  @default(false)
+  creadoEn   DateTime @default(now())
+  foto       Foto?
+  sesiones   Sesion[]
+  asignadas  Tarea[]  @relation("asignada")
+  creadas    Tarea[]  @relation("creada")
+}
+
+// Aparte de Miembro para no cargar los bytes en cada consulta de integrantes.
+model Foto {
+  miembroId Int     @id
+  miembro   Miembro @relation(fields: [miembroId], references: [id], onDelete: Cascade)
+  datos     Bytes
+  tipo      String
+}
+
+model Sesion {
+  id        String   @id
+  miembroId Int
+  miembro   Miembro  @relation(fields: [miembroId], references: [id], onDelete: Cascade)
+  expira    DateTime
+}
+
 model Tarea {
   id         Int      @id @default(autoincrement())
   titulo     String
   prioridad  String   @default("media")
-  completada Boolean  @default(false)
+  estado     String   @default("pendiente")
   creadaEn   DateTime @default(now())
+  asignadoId Int?
+  asignado   Miembro? @relation("asignada", fields: [asignadoId], references: [id], onDelete: SetNull)
+  creadorId  Int?
+  creador    Miembro? @relation("creada", fields: [creadorId], references: [id], onDelete: SetNull)
 }
