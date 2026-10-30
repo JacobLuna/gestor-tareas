@@ -8,17 +8,21 @@ datasource db {
 }
 
 model Miembro {
-  id         Int      @id @default(autoincrement())
-  nombre     String   @unique
-  avatar     String
-  rol        String   @default("miembro")
-  pinHash    String
-  conFoto    Boolean  @default(false)
-  creadoEn   DateTime @default(now())
-  foto       Foto?
-  sesiones   Sesion[]
-  asignadas  Tarea[]  @relation("asignada")
-  creadas    Tarea[]  @relation("creada")
+  id             Int          @id @default(autoincrement())
+  nombre         String       @unique
+  avatar         String
+  rol            String       @default("miembro")
+  pinHash        String
+  conFoto        Boolean      @default(false)
+  creadoEn       DateTime     @default(now())
+  foto           Foto?
+  sesiones       Sesion[]
+  asignadas      Tarea[]      @relation("asignada")
+  creadas        Tarea[]      @relation("creada")
+  recAsignadas   Recurrente[] @relation("recAsignada")
+  recCreadas     Recurrente[] @relation("recCreada")
+  eventos        Evento[]     @relation("eventoDe")
+  eventosCreados Evento[]     @relation("eventoCreado")
 }
 
 // Aparte de Miembro para no cargar los bytes en cada consulta de integrantes.
@@ -37,13 +41,56 @@ model Sesion {
 }
 
 model Tarea {
+  id           Int         @id @default(autoincrement())
+  titulo       String
+  prioridad    String      @default("media")
+  estado       String      @default("pendiente")
+  creadaEn     DateTime    @default(now())
+  asignadoId   Int?
+  asignado     Miembro?    @relation("asignada", fields: [asignadoId], references: [id], onDelete: SetNull)
+  creadorId    Int?
+  creador      Miembro?    @relation("creada", fields: [creadorId], references: [id], onDelete: SetNull)
+  // Tarjeta generada por una plantilla recurrente para un día (fecha) y horario (hora, "" si no tiene).
+  recurrenteId Int?
+  recurrente   Recurrente? @relation(fields: [recurrenteId], references: [id], onDelete: Cascade)
+  fecha        String?
+  hora         String      @default("")
+
+  @@unique([recurrenteId, fecha, hora])
+}
+
+// Plantilla: dias = "1,2,3" (0 domingo), horas = "08:00,14:00" o "" (una vez al día).
+model Recurrente {
   id         Int      @id @default(autoincrement())
   titulo     String
   prioridad  String   @default("media")
-  estado     String   @default("pendiente")
+  dias       String
+  horas      String   @default("")
+  desde      String
+  hasta      String?
+  activa     Boolean  @default(true)
   creadaEn   DateTime @default(now())
   asignadoId Int?
-  asignado   Miembro? @relation("asignada", fields: [asignadoId], references: [id], onDelete: SetNull)
+  asignado   Miembro? @relation("recAsignada", fields: [asignadoId], references: [id], onDelete: SetNull)
   creadorId  Int?
-  creador    Miembro? @relation("creada", fields: [creadorId], references: [id], onDelete: SetNull)
+  creador    Miembro? @relation("recCreada", fields: [creadorId], references: [id], onDelete: SetNull)
+  tareas     Tarea[]
+}
+
+// Agenda: con fecha es un evento único; sin fecha se repite en dias dentro de desde..hasta.
+// miembroId nulo = toda la familia.
+model Evento {
+  id        Int      @id @default(autoincrement())
+  titulo    String
+  inicio    String
+  fin       String
+  fecha     String?
+  dias      String   @default("")
+  desde     String?
+  hasta     String?
+  creadoEn  DateTime @default(now())
+  miembroId Int?
+  miembro   Miembro? @relation("eventoDe", fields: [miembroId], references: [id], onDelete: Cascade)
+  creadorId Int?
+  creador   Miembro? @relation("eventoCreado", fields: [creadorId], references: [id], onDelete: SetNull)
 }
