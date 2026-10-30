@@ -1,8 +1,15 @@
 import { redirect, type Handle } from '@sveltejs/kit';
+import { mismoOrigen } from '$lib/origen';
 import { db } from '$lib/server/db';
 import { leerSesion } from '$lib/server/sesion';
 
+const MUTA = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
 export const handle: Handle = async ({ event, resolve }) => {
+	if (MUTA.has(event.request.method) && !mismoOrigen(event.request.headers.get('origin'), event.request.headers.get('host'))) {
+		return new Response('Cross-site form submissions are forbidden', { status: 403 });
+	}
+
 	const miembro = await leerSesion(event.cookies);
 	event.locals.miembro = miembro;
 	const ruta = event.url.pathname;

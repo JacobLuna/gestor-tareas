@@ -1,0 +1,13 @@
+services:
+  gestor-tareas:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      TZ: America/Merida
+    volumes:
+      - datos:/data
+    restart: unless-stopped
+
+volumes:
+  datos:
