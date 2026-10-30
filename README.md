@@ -69,3 +69,7 @@ Abre http://localhost:5173.
 - No se pueden editar las plantillas recurrentes ni los eventos; se borran y se vuelven a crear.
 - Sin recordatorios ni notificaciones.
 - Sin HTTPS: pensada para la red local.
+
+## Licencia
+
+[MIT](LICENSE)
