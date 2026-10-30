@@ -7,7 +7,10 @@ export const load: PageServerLoad = async () => ({
 	tareas: await db.tarea.findMany({ orderBy: [{ completada: 'asc' }, { creadaEn: 'desc' }] })
 });
 
-const idDe = (data: FormData) => Number(data.get('id'));
+const idDe = (data: FormData) => {
+	const id = Number(data.get('id'));
+	return Number.isInteger(id) ? id : null;
+};
 
 export const actions: Actions = {
 	crear: async ({ request }) => {
@@ -18,11 +21,14 @@ export const actions: Actions = {
 	},
 	alternar: async ({ request }) => {
 		const id = idDe(await request.formData());
+		if (id === null) return fail(400, { error: 'Id no válido.' });
 		const t = await db.tarea.findUnique({ where: { id } });
 		if (!t) return fail(404, { error: 'La tarea no existe.' });
 		await db.tarea.update({ where: { id }, data: { completada: !t.completada } });
 	},
 	borrar: async ({ request }) => {
-		await db.tarea.deleteMany({ where: { id: idDe(await request.formData()) } });
+		const id = idDe(await request.formData());
+		if (id === null) return fail(400, { error: 'Id no válido.' });
+		await db.tarea.deleteMany({ where: { id } });
 	}
 };
