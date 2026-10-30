@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import Avatar from '$lib/Avatar.svelte';
+	import { DIAS_CORTO, ORDEN_SEMANA } from '$lib/fechas';
 	import { PRIORIDADES, puedeBorrar, puedeCrear, puedeMover, type Estado } from '$lib/tareas';
 
 	let { data, form } = $props();
@@ -10,6 +11,10 @@
 		{ estado: 'en_curso', titulo: 'En curso', icono: '◐' },
 		{ estado: 'hecha', titulo: 'Hecha', icono: '●' }
 	];
+
+	let repetir = $state(false);
+	let dias = $state<number[]>([]);
+	let nHoras = $state(1);
 
 	const total = $derived(data.tareas.length);
 	const hechas = $derived(data.tareas.filter((t) => t.estado === 'hecha').length);
@@ -32,7 +37,17 @@
 	</header>
 
 	{#if data.yo && puedeCrear(data.yo)}
-	<form class="nueva" method="POST" action="?/crear" use:enhance>
+	<form
+			class="nueva"
+			method="POST"
+			action="?/crear"
+			use:enhance={() => async ({ update }) => {
+				await update();
+				repetir = false;
+				dias = [];
+				nHoras = 1;
+			}}
+		>
 		<input name="titulo" placeholder="¿Qué hay que hacer?" maxlength="120" required />
 		<select name="prioridad" aria-label="Prioridad">
 			{#each PRIORIDADES as p}
@@ -53,6 +68,35 @@
 				</label>
 			{/each}
 		</fieldset>
+		<label class="repetir">
+			<input type="checkbox" name="repetir" bind:checked={repetir} /> 🔁 Repetir
+		</label>
+		{#if repetir}
+			<fieldset class="repite">
+				<legend>Días</legend>
+				{#each ORDEN_SEMANA as d}
+					<label class="dia">
+						<input type="checkbox" name="dia" value={d} bind:group={dias} />
+						<span class="chip">{DIAS_CORTO[d]}</span>
+					</label>
+				{/each}
+				<button type="button" class="mini" onclick={() => (dias = [1, 2, 3, 4, 5, 6, 0])}>Todos</button>
+				<button type="button" class="mini" onclick={() => (dias = [1, 2, 3, 4, 5])}>Lun–Vie</button>
+			</fieldset>
+			<div class="repite horarios">
+				<span class="etq">Horarios</span>
+				{#each Array(nHoras) as _}
+					<input type="time" name="hora" aria-label="Horario" />
+				{/each}
+				<button type="button" class="mini" onclick={() => nHoras++}>+ horario</button>
+				<small>Sin horarios: una vez al día.</small>
+			</div>
+			<div class="repite horarios">
+				<label>Desde <input type="date" name="desde" value={data.hoy} /></label>
+				<label>Hasta <input type="date" name="hasta" /></label>
+				<small>Sin fecha final: sigue hasta que la borres.</small>
+			</div>
+		{/if}
 	</form>
 	{/if}
 	{#if form?.error}<p class="error">{form.error}</p>{/if}
@@ -69,7 +113,10 @@
 
 				{#each tareas as t (t.id)}
 					<article class="tarjeta {t.prioridad}">
-						<p class="titulo">{t.titulo}</p>
+						<p class="titulo">
+							{#if t.recurrenteId}🔁 {/if}{t.titulo}
+							{#if t.hora}<span class="hora">{t.hora}</span>{/if}
+						</p>
 						<footer>
 							<span class="prio">
 								{#if t.asignado}<Avatar m={t.asignado} tam={1.2} /> {t.asignado.nombre}{:else}de todos{/if} · {t.prioridad}
@@ -197,6 +244,62 @@
 	}
 	.asignar input:focus-visible + .chip {
 		outline: 2px solid var(--acento);
+	}
+	.repetir {
+		flex-basis: 100%;
+		color: var(--suave);
+		font-size: 0.9rem;
+	}
+	.repite {
+		flex-basis: 100%;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.4rem;
+		border: none;
+		margin: 0;
+		padding: 0;
+	}
+	.repite legend,
+	.etq {
+		float: left;
+		margin-right: 0.5rem;
+		padding: 0;
+		color: var(--suave);
+		font-size: 0.85rem;
+	}
+	.repite small {
+		color: var(--suave);
+	}
+	.dia input {
+		position: absolute;
+		opacity: 0;
+	}
+	.dia input:checked + .chip {
+		border-color: var(--acento);
+		background: color-mix(in srgb, var(--acento) 15%, var(--superficie));
+	}
+	.dia input:focus-visible + .chip {
+		outline: 2px solid var(--acento);
+	}
+	.repite input[type="time"],
+	.repite input[type="date"] {
+		padding: 0.35rem 0.5rem;
+	}
+	.mini {
+		background: none;
+		border: 1px solid var(--borde);
+		border-radius: 0.5rem;
+		padding: 0.3rem 0.7rem;
+		color: var(--suave);
+		cursor: pointer;
+	}
+	.hora {
+		margin-left: 0.3rem;
+		padding: 0.05rem 0.45rem;
+		border-radius: 1rem;
+		background: var(--borde);
+		font-size: 0.75rem;
 	}
 	.filtro {
 		display: flex;

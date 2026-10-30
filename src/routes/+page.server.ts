@@ -1,5 +1,8 @@
 import { error, fail } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
+import { generarDeHoy } from '$lib/server/recurrentes';
+import { leerHoras } from '$lib/agenda';
+import { hoyISO, leerRegla } from '$lib/fechas';
 import { esEstado, puedeBorrar, puedeCrear, puedeMover, validarTarea } from '$lib/tareas';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -7,14 +10,23 @@ const quien = { select: { id: true, nombre: true, avatar: true, conFoto: true } 
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const soloMias = url.searchParams.get('ver') === 'mias';
+	const hoy = hoyISO();
+	await generarDeHoy(hoy);
 	return {
 		soloMias,
+		hoy,
 		miembros: await db.miembro.findMany({ ...quien, orderBy: { nombre: 'asc' } }),
-		tareas: await db.tarea.findMany({
-			where: soloMias ? { asignadoId: locals.miembro!.id } : {},
-			include: { asignado: quien, creador: quien },
-			orderBy: { creadaEn: 'desc' }
-		})
+		// De las recurrentes solo se muestran las de hoy; las de días pasados quedan como historial.
+		tareas: (
+			await db.tarea.findMany({
+				where: {
+					OR: [{ recurrenteId: null }, { fecha: hoy }],
+					...(soloMias ? { asignadoId: locals.miembro!.id } : {})
+				},
+				include: { asignado: quien, creador: quien },
+				orderBy: { creadaEn: 'desc' }
+			})
+		).sort((a, b) => (a.hora || '~').localeCompare(b.hora || '~'))
 	};
 };
 
@@ -37,7 +49,28 @@ export const actions: Actions = {
 				return fail(400, { error: 'El integrante no existe.' });
 			}
 		}
-		await db.tarea.create({ data: { ...r.tarea, asignadoId, creadorId: locals.miembro!.id } });
+		const creadorId = locals.miembro!.id;
+		if (!data.get('repetir')) {
+			await db.tarea.create({ data: { ...r.tarea, asignadoId, creadorId } });
+			return;
+		}
+		const hoy = hoyISO();
+		const regla = leerRegla(data, hoy);
+		if (!regla.ok) return fail(400, { error: regla.error });
+		const h = leerHoras(data);
+		if (!h.ok) return fail(400, { error: h.error });
+		await db.recurrente.create({
+			data: {
+				...r.tarea,
+				asignadoId,
+				creadorId,
+				dias: regla.dias.join(','),
+				horas: h.horas.join(','),
+				desde: regla.desde,
+				hasta: regla.hasta
+			}
+		});
+		await generarDeHoy(hoy);
 	},
 	mover: async ({ request, locals }) => {
 		const data = await request.formData();
