@@ -9,6 +9,8 @@
 {#if data.yo}
 	<nav>
 		<a href="/" class:activo={page.url.pathname === '/'}>Tablero</a>
+		<a href="/agenda" class:activo={page.url.pathname === '/agenda'}>Agenda</a>
+		<a href="/recurrentes" class:activo={page.url.pathname === '/recurrentes'}>Recurrentes</a>
 		{#if data.yo.rol === 'admin'}
 			<a href="/familia" class:activo={page.url.pathname === '/familia'}>Familia</a>
 		{/if}
