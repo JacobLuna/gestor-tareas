@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { validarTarea } from './tareas';
+import { esEstado, validarTarea } from './tareas';
+
+describe('esEstado', () => {
+	it('acepta solo estados del tablero', () => {
+		expect(esEstado('en_curso')).toBe(true);
+		expect(esEstado('borrada')).toBe(false);
+		expect(esEstado(null)).toBe(false);
+	});
+});
 
 describe('validarTarea', () => {
 	it('acepta un título válido y recorta espacios', () => {
